@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shieldflow"
+version = "0.1.0"
+description = "ShieldFlow: LLM Runtime IDS for prompts, responses, and tool calls"
+authors = [{ name = "ShieldFlow Team" }]
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["llm", "security", "pii", "kafka", "datadog", "runtime-ids"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+observability = ["requests>=2.28"]
+redis = ["redis>=4.5"]
+langchain = ["langchain>=0.1", "tiktoken>=0.5"]
+crewai = ["crewai>=0.28"]
+
+[project.urls]
+Homepage = "https://example.com/shieldflow"
