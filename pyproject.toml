@@ -21,6 +21,12 @@ observability = ["requests>=2.28"]
 redis = ["redis>=4.5"]
 langchain = ["langchain>=0.1", "tiktoken>=0.5"]
 crewai = ["crewai>=0.28"]
+test = ["pytest>=7.4", "kafka-python>=2.0", "requests>=2.28"]
 
 [project.urls]
 Homepage = "https://example.com/shieldflow"
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: tests that require external stack (Redis/Kafka/Flink)",
+]

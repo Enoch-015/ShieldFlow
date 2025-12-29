@@ -1,3 +1,29 @@
+Metadata-Version: 2.4
+Name: shieldflow
+Version: 0.1.0
+Summary: ShieldFlow: LLM Runtime IDS for prompts, responses, and tool calls
+Author: ShieldFlow Team
+Project-URL: Homepage, https://example.com/shieldflow
+Keywords: llm,security,pii,kafka,datadog,runtime-ids
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Provides-Extra: observability
+Requires-Dist: requests>=2.28; extra == "observability"
+Provides-Extra: redis
+Requires-Dist: redis>=4.5; extra == "redis"
+Provides-Extra: langchain
+Requires-Dist: langchain>=0.1; extra == "langchain"
+Requires-Dist: tiktoken>=0.5; extra == "langchain"
+Provides-Extra: crewai
+Requires-Dist: crewai>=0.28; extra == "crewai"
+Provides-Extra: test
+Requires-Dist: pytest>=7.4; extra == "test"
+Requires-Dist: kafka-python>=2.0; extra == "test"
+Requires-Dist: requests>=2.28; extra == "test"
+
 # ShieldFlow: LLM Runtime IDS
 
 ShieldFlow is a zero-trust runtime security layer for agentic systems. It inspects user prompts, LLM responses, and tool calls in real time before they reach the model or external systems. Built for Confluent (Kafka/Flink) + Datadog, it adds behavioral monitoring, trust scoring, and auditable block actions that plug into LangChain, CrewAI, or any bespoke agent stack.
@@ -78,7 +104,7 @@ make demo
 ```
 make compose-up
 # Flink UI: http://localhost:8081
-# Kafka broker: localhost:9092, Redis: localhost:6380 (host mapped)
+# Kafka broker: localhost:9092, Redis: localhost:6379
 make compose-down
 ```
 Use `RedisTrustStore` to persist trust across stream tasks:
@@ -104,7 +130,7 @@ See `examples/flink_sql_example.sql` for a Kafka source -> detections sink templ
 ## Integration tests (stack reachability)
 ```
 make setup  # ensures test extras installed
-make test-stack
+pytest -m integration tests/test_stack.py
 ```
 Tests will be skipped if Redis/Kafka/Flink are not reachable; use `make compose-up` first.
 

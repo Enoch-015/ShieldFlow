@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Iterable, Protocol
+from typing import Dict, Iterable, Optional, Protocol
 
 from .detectors import DetectionResult
 
@@ -21,6 +21,30 @@ class InMemoryTrustStore:
 
     def set(self, session_id: str, score: int) -> None:
         self._store[session_id] = score
+
+
+class RedisTrustStore:
+    """Redis-backed trust store for horizontal scaling."""
+
+    def __init__(self, redis_client: "redis.Redis", initial: int = 100, key_prefix: str = "shieldflow:trust:") -> None:  # type: ignore[name-defined]
+        self.redis = redis_client
+        self.initial = initial
+        self.key_prefix = key_prefix
+
+    def _key(self, session_id: str) -> str:
+        return f"{self.key_prefix}{session_id}"
+
+    def get(self, session_id: str) -> int:
+        val: Optional[bytes] = self.redis.get(self._key(session_id))  # type: ignore[assignment]
+        if val is None:
+            return self.initial
+        try:
+            return int(val)
+        except Exception:
+            return self.initial
+
+    def set(self, session_id: str, score: int) -> None:
+        self.redis.set(self._key(session_id), score)
 
 
 @dataclass
