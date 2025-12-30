@@ -115,6 +115,15 @@ python examples/crewai_integration.py
 ```
 The example uses `CrewAIMiddleware.kickoff_guarded` to inspect/mask user prompts (string or messages list) and re-check LLM responses for entropy/PII. If a prompt is unsafe, it raises before calling the agent; if a response is risky, it raises after kickoff. Replace the agent config/LLM per your environment.
 
+## LangChain integration
+```
+pip install -e '.[langchain]'
+python examples/langchain_integration.py
+```
+In `examples/langchain_integration.py` we:
+- Run `validate_tool_metadata` before registering tools to catch malicious MCP/tool descriptions.
+- Attach `ShieldFlowCallbackHandler` so prompts, tool inputs, and responses are inspected/masked/blocked.
+
 ### CrewAI tests
 ```
 # Unit-level guard tests (no API calls)

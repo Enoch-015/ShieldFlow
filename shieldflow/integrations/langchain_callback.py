@@ -1,4 +1,5 @@
-from typing import Any, Dict, Optional
+import json
+from typing import Any, Dict, Iterable, Optional
 
 from ..inspector import Inspector
 
@@ -30,6 +31,16 @@ class ShieldFlowCallbackHandler(BaseCallbackHandler):
         prompts[:] = checked
         return None
 
+    def on_tool_start(self, serialized: Dict[str, Any], input_str: Any, **kwargs: Any) -> Optional[Any]:
+        """Inspect tool call inputs for PII/injection before execution."""
+        text = self._stringify(input_str)
+        if not text:
+            return None
+        decision = self.inspector.inspect_prompt(self.session_id, text)
+        if decision.detections or not decision.allowed:
+            raise RuntimeError(f"ShieldFlow blocked tool input: {decision.reason}")
+        return None
+
     def on_llm_end(self, response: Any, **kwargs: Any) -> Optional[Any]:
         # Optionally inspect responses if available in the response object.
         content = None
@@ -42,6 +53,34 @@ class ShieldFlowCallbackHandler(BaseCallbackHandler):
         if not content:
             return None
         decision = self.inspector.inspect_response(self.session_id, content)
-        if not decision.allowed:
+        if decision.detections or not decision.allowed:
             raise RuntimeError(f"ShieldFlow blocked response: {decision.reason}")
         return None
+
+    @staticmethod
+    def _stringify(value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        try:
+            return json.dumps(value)
+        except Exception:
+            return str(value)
+
+
+def validate_tool_metadata(tools: Iterable[Any], inspector: Inspector, session_id: str) -> None:
+    """Scan tool descriptions for malicious prompt-injection text before registration.
+
+    Raises ValueError if a description trips ShieldFlow detectors. This is intended to
+    catch hostile MCP/LLM tool descriptors before they reach the agent runtime.
+    """
+
+    for tool in tools:
+        desc = getattr(tool, "description", None)
+        if not desc:
+            continue
+        detections = inspector.detectors.detect_prompt(str(desc))
+        if detections:
+            reason = "; ".join(d.reason for d in detections)
+            raise ValueError(f"ShieldFlow blocked tool registration for '{getattr(tool, 'name', tool)}': {reason}")
