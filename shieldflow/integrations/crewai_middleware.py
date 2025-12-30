@@ -20,6 +20,44 @@ class CrewAIMiddleware:
             raise RuntimeError(f"ShieldFlow blocked prompt: {decision.reason}")
         return decision.redacted_text or prompt
 
+    def _scan_text_for_injection(self, text: str, label: str) -> None:
+        detections = self.inspector.detectors.detect_prompt(text)
+        if detections:
+            reason = "; ".join(d.reason for d in detections)
+            raise ValueError(f"ShieldFlow blocked {label}: {reason}")
+
+    def _scan_metadata(self, payload: Any, label: str) -> None:
+        """Recursively inspect tool/MCP/knowledge metadata for prompt injection."""
+
+        if payload is None:
+            return
+        if isinstance(payload, str):
+            self._scan_text_for_injection(payload, label)
+            return
+        if isinstance(payload, dict):
+            for k, v in payload.items():
+                self._scan_metadata(v, f"{label}.{k}")
+            return
+        if isinstance(payload, Iterable) and not isinstance(payload, (str, bytes)):
+            for idx, item in enumerate(payload):
+                self._scan_metadata(item, f"{label}[{idx}]")
+            return
+
+        desc = getattr(payload, "description", None)
+        name = getattr(payload, "name", label)
+        if desc:
+            self._scan_text_for_injection(str(desc), f"{label}:{name}")
+        else:
+            self._scan_text_for_injection(str(payload), label)
+
+    def validate_agent_metadata(self, agent: Any) -> None:
+        """Guard tool/MCP/knowledge descriptions against prompt injection."""
+
+        self._scan_metadata(getattr(agent, "tools", None), "tool")
+        self._scan_metadata(getattr(agent, "mcp_tools", None), "mcp_tool")
+        self._scan_metadata(getattr(agent, "mcp", None), "mcp")
+        self._scan_metadata(getattr(agent, "knowledge", None), "knowledge")
+
     def wrap_response(self, response: str) -> str:
         decision = self.inspector.inspect_response(self.session_id, response)
         if not decision.allowed:
@@ -44,6 +82,8 @@ class CrewAIMiddleware:
         - For list-of-dict messages: inspects only user-role contents.
         - After kickoff, inspects the raw response (if present) for entropy/PII.
         """
+
+        self.validate_agent_metadata(agent)
 
         guarded_messages: Union[str, List[dict]]
         if isinstance(messages, str):
