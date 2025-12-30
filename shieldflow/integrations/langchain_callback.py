@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, Iterable, Optional
 
 from ..inspector import Inspector
+from ..event_bus import DetectionEvent
 
 try:
     from langchain.callbacks.base import BaseCallbackHandler
@@ -83,4 +84,25 @@ def validate_tool_metadata(tools: Iterable[Any], inspector: Inspector, session_i
         detections = inspector.detectors.detect_prompt(str(desc))
         if detections:
             reason = "; ".join(d.reason for d in detections)
+            _emit_metadata_event(inspector, session_id, tool, reason, detections, desc)
             raise ValueError(f"ShieldFlow blocked tool registration for '{getattr(tool, 'name', tool)}': {reason}")
+
+
+def _emit_metadata_event(inspector: Inspector, session_id: str, tool: Any, reason: str, detections: Iterable[Any], desc: str) -> None:
+    sink = getattr(inspector, "event_sink", None)
+    if not sink:
+        return
+    try:
+        event = DetectionEvent(
+            session_id=session_id,
+            stage="metadata:tool",
+            action="block",
+            reason=reason,
+            trust_score=inspector.trust_engine.store.get(session_id),
+            detections=[d.to_dict() for d in detections],
+            redacted_text=None,
+            original_text=str(desc),
+        )
+        sink.send(event)
+    except Exception:
+        return

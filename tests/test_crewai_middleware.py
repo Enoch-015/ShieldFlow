@@ -1,6 +1,7 @@
 import pytest
 
 from shieldflow.detectors import DetectorSuite
+from shieldflow.event_bus import InMemorySink
 from shieldflow.inspector import Inspector
 from shieldflow.trust import InMemoryTrustStore, TrustEngine
 from shieldflow.integrations.crewai_middleware import CrewAIMiddleware
@@ -27,7 +28,7 @@ class MockAgent:
 def guard():
     detectors = DetectorSuite()
     trust = TrustEngine(InMemoryTrustStore())
-    inspector = Inspector(detectors, trust)
+    inspector = Inspector(detectors, trust, event_sink=InMemorySink())
     return CrewAIMiddleware(inspector, session_id="test-session")
 
 
@@ -73,6 +74,8 @@ def test_blocks_injected_tool_description(guard):
 
     with pytest.raises(ValueError, match="blocked tool"):
         guard.kickoff_guarded(agent, "Hello")
+    # Event emitted
+    assert guard.inspector.event_sink.events[0].stage.startswith("metadata:tool")
 
 
 def test_blocks_injected_knowledge(guard):
@@ -81,3 +84,4 @@ def test_blocks_injected_knowledge(guard):
 
     with pytest.raises(ValueError, match="blocked knowledge"):
         guard.kickoff_guarded(agent, "Hello")
+    assert guard.inspector.event_sink.events[-1].stage.startswith("metadata:knowledge")

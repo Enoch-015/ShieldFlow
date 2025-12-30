@@ -1,6 +1,7 @@
 from typing import Any, Callable, Iterable, List, Union
 
 from ..inspector import Inspector
+from ..event_bus import DetectionEvent
 
 
 class CrewAIMiddleware:
@@ -24,6 +25,7 @@ class CrewAIMiddleware:
         detections = self.inspector.detectors.detect_prompt(text)
         if detections:
             reason = "; ".join(d.reason for d in detections)
+            self._emit_metadata_event(label, reason, detections, text)
             raise ValueError(f"ShieldFlow blocked {label}: {reason}")
 
     def _scan_metadata(self, payload: Any, label: str) -> None:
@@ -57,6 +59,25 @@ class CrewAIMiddleware:
         self._scan_metadata(getattr(agent, "mcp_tools", None), "mcp_tool")
         self._scan_metadata(getattr(agent, "mcp", None), "mcp")
         self._scan_metadata(getattr(agent, "knowledge", None), "knowledge")
+
+    def _emit_metadata_event(self, label: str, reason: str, detections: Iterable[Any], text: str) -> None:
+        sink = getattr(self.inspector, "event_sink", None)
+        if not sink:
+            return
+        try:
+            event = DetectionEvent(
+                session_id=self.session_id,
+                stage=f"metadata:{label}",
+                action="block",
+                reason=reason,
+                trust_score=self.inspector.trust_engine.store.get(self.session_id),
+                detections=[d.to_dict() for d in detections],
+                redacted_text=None,
+                original_text=text,
+            )
+            sink.send(event)
+        except Exception:
+            return
 
     def wrap_response(self, response: str) -> str:
         decision = self.inspector.inspect_response(self.session_id, response)

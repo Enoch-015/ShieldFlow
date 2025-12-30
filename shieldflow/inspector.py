@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from .detectors import DetectionResult, DetectorSuite
 from .trust import TrustDecision, TrustEngine
+from .event_bus import DetectionEvent, DetectionSink
 
 
 @dataclass
@@ -18,9 +19,15 @@ class InspectionDecision:
 class Inspector:
     """Runs detectors then consults the TrustEngine to produce allow/block decisions."""
 
-    def __init__(self, detectors: DetectorSuite, trust_engine: TrustEngine) -> None:
+    def __init__(
+        self,
+        detectors: DetectorSuite,
+        trust_engine: TrustEngine,
+        event_sink: Optional[DetectionSink] = None,
+    ) -> None:
         self.detectors = detectors
         self.trust_engine = trust_engine
+        self.event_sink = event_sink
 
     def inspect_prompt(self, session_id: str, prompt: str, allow_masking: bool = True) -> InspectionDecision:
         detections = self.detectors.detect_prompt(prompt)
@@ -38,7 +45,7 @@ class Inspector:
         if not allowed:
             action = "block"
 
-        return InspectionDecision(
+        decision = InspectionDecision(
             allowed=allowed,
             redacted_text=redacted,
             detections=list(detections),
@@ -46,6 +53,8 @@ class Inspector:
             action=action,
             reason="; ".join([p for p in reason_parts if p]),
         )
+        self._emit_event(session_id, "prompt", decision, prompt)
+        return decision
 
     def inspect_response(self, session_id: str, response: str) -> InspectionDecision:
         detections = self.detectors.detect_response(response)
@@ -53,7 +62,7 @@ class Inspector:
         allowed = not trust_decision.blocked
         action = "allow" if allowed else "block"
         reason_parts = [trust_decision.reason] + [d.reason for d in detections]
-        return InspectionDecision(
+        decision = InspectionDecision(
             allowed=allowed,
             redacted_text=None,
             detections=list(detections),
@@ -61,6 +70,27 @@ class Inspector:
             action=action,
             reason="; ".join([p for p in reason_parts if p]),
         )
+        self._emit_event(session_id, "response", decision, response)
+        return decision
+
+    def _emit_event(self, session_id: str, stage: str, decision: InspectionDecision, text: str) -> None:
+        if not self.event_sink:
+            return
+        try:
+            event = DetectionEvent(
+                session_id=session_id,
+                stage=stage,
+                action=decision.action,
+                reason=decision.reason,
+                trust_score=decision.trust.score,
+                detections=[d.to_dict() for d in decision.detections],
+                redacted_text=decision.redacted_text,
+                original_text=text,
+            )
+            self.event_sink.send(event)
+        except Exception:
+            # Never block user flow on telemetry path
+            return
 
     @staticmethod
     def _redact(text: str, detections: List[DetectionResult]) -> str:

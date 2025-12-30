@@ -1,4 +1,5 @@
 from shieldflow.detectors import DetectorSuite
+from shieldflow.event_bus import KafkaDetectionSink, InMemorySink
 from shieldflow.inspector import Inspector
 from shieldflow.trust import InMemoryTrustStore, TrustEngine
 from shieldflow.gateway_proxy import GatewayProxy
@@ -11,7 +12,15 @@ def mock_llm_call(prompt: str) -> str:
 def run_demo() -> None:
     detectors = DetectorSuite()
     trust = TrustEngine(InMemoryTrustStore())
-    inspector = Inspector(detectors, trust)
+
+    # Send detections to Kafka if configured, otherwise keep in-memory for the demo
+    sink = None
+    try:
+        sink = KafkaDetectionSink(topic="shieldflow.detections", bootstrap_servers="localhost:9092")
+    except Exception:
+        sink = InMemorySink()
+
+    inspector = Inspector(detectors, trust, event_sink=sink)
     proxy = GatewayProxy(inspector)
 
     session_id = "demo-session"
