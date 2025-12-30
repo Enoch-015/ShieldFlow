@@ -108,6 +108,22 @@ make test-stack
 ```
 Tests will be skipped if Redis/Kafka/Flink are not reachable; use `make compose-up` first.
 
+## CrewAI integration
+```
+pip install -e '.[crewai]'
+python examples/crewai_integration.py
+```
+The example uses `CrewAIMiddleware.kickoff_guarded` to inspect/mask user prompts (string or messages list) and re-check LLM responses for entropy/PII. If a prompt is unsafe, it raises before calling the agent; if a response is risky, it raises after kickoff. Replace the agent config/LLM per your environment.
+
+### CrewAI tests
+```
+# Unit-level guard tests (no API calls)
+pytest tests/test_crewai_middleware.py
+
+# Real CrewAI Agent test (requires OPENAI_API_KEY and internet)
+pytest tests/test_crewai_agent_real.py
+```
+
 ## Extending
 - Swap in ML detectors (e.g., Presidio, llama-guard) in `detectors.py`.
 - Implement Redis-backed `TrustStore` for horizontal scale.
