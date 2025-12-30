@@ -12,7 +12,12 @@ requests>=2.28
 [redis]
 redis>=4.5
 
+[streaming]
+apache-flink==2.2.0
+kafka-python>=2.0
+
 [test]
 pytest>=7.4
 kafka-python>=2.0
 requests>=2.28
+apache-flink==2.2.0

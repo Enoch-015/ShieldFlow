@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from dataclasses import dataclass, asdict
 from typing import Any, Optional, Protocol
 
@@ -56,3 +57,22 @@ class KafkaDetectionSink:
             self.producer.send(self.topic, event.to_json())
         except Exception as exc:  # pragma: no cover - transport failure
             logger.warning("Failed to emit detection event to Kafka: %s", exc)
+
+
+def build_kafka_sink_from_env() -> Optional[KafkaDetectionSink]:
+    """Best-effort Kafka sink based on env vars.
+
+    Reads SHIELDFLOW_KAFKA_BOOTSTRAP (or KAFKA_BOOTSTRAP_SERVERS) and
+    SHIELDFLOW_KAFKA_TOPIC. Returns None if misconfigured or kafka-python
+    is unavailable.
+    """
+
+    bootstrap = os.getenv("SHIELDFLOW_KAFKA_BOOTSTRAP") or os.getenv("KAFKA_BOOTSTRAP_SERVERS")
+    if not bootstrap:
+        return None
+    topic = os.getenv("SHIELDFLOW_KAFKA_TOPIC", "shieldflow.detections")
+    try:
+        return KafkaDetectionSink(topic=topic, bootstrap_servers=bootstrap)
+    except Exception as exc:  # pragma: no cover - optional path
+        logger.warning("Kafka sink disabled: %s", exc)
+        return None

@@ -3,6 +3,7 @@ pyproject.toml
 shieldflow/__init__.py
 shieldflow/datadog.py
 shieldflow/detectors.py
+shieldflow/event_bus.py
 shieldflow/flink_udfs.py
 shieldflow/gateway_proxy.py
 shieldflow/inspector.py
@@ -15,4 +16,11 @@ shieldflow.egg-info/top_level.txt
 shieldflow/integrations/__init__.py
 shieldflow/integrations/crewai_middleware.py
 shieldflow/integrations/langchain_callback.py
+tests/test_crewai_agent_real.py
+tests/test_crewai_middleware.py
+tests/test_detectors.py
+tests/test_event_bus.py
+tests/test_kafka_flink_integration.py
+tests/test_langchain_callback.py
 tests/test_stack.py
+tests/test_streaming_integration.py

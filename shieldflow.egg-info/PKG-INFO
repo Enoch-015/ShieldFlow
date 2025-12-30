@@ -19,10 +19,14 @@ Requires-Dist: langchain>=0.1; extra == "langchain"
 Requires-Dist: tiktoken>=0.5; extra == "langchain"
 Provides-Extra: crewai
 Requires-Dist: crewai>=0.28; extra == "crewai"
+Provides-Extra: streaming
+Requires-Dist: apache-flink==2.2.0; extra == "streaming"
+Requires-Dist: kafka-python>=2.0; extra == "streaming"
 Provides-Extra: test
 Requires-Dist: pytest>=7.4; extra == "test"
 Requires-Dist: kafka-python>=2.0; extra == "test"
 Requires-Dist: requests>=2.28; extra == "test"
+Requires-Dist: apache-flink==2.2.0; extra == "test"
 
 # ShieldFlow: LLM Runtime IDS
 
@@ -104,7 +108,7 @@ make demo
 ```
 make compose-up
 # Flink UI: http://localhost:8081
-# Kafka broker: localhost:9092, Redis: localhost:6379
+# Kafka broker: localhost:9092, Redis: localhost:6380 (host mapped)
 make compose-down
 ```
 Use `RedisTrustStore` to persist trust across stream tasks:
@@ -130,9 +134,34 @@ See `examples/flink_sql_example.sql` for a Kafka source -> detections sink templ
 ## Integration tests (stack reachability)
 ```
 make setup  # ensures test extras installed
-pytest -m integration tests/test_stack.py
+make test-stack
 ```
 Tests will be skipped if Redis/Kafka/Flink are not reachable; use `make compose-up` first.
+
+## CrewAI integration
+```
+pip install -e '.[crewai]'
+python examples/crewai_integration.py
+```
+The example uses `CrewAIMiddleware.kickoff_guarded` to inspect/mask user prompts (string or messages list) and re-check LLM responses for entropy/PII. If a prompt is unsafe, it raises before calling the agent; if a response is risky, it raises after kickoff. Replace the agent config/LLM per your environment.
+
+## LangChain integration
+```
+pip install -e '.[langchain]'
+python examples/langchain_integration.py
+```
+In `examples/langchain_integration.py` we:
+- Run `validate_tool_metadata` before registering tools to catch malicious MCP/tool descriptions.
+- Attach `ShieldFlowCallbackHandler` so prompts, tool inputs, and responses are inspected/masked/blocked.
+
+### CrewAI tests
+```
+# Unit-level guard tests (no API calls)
+pytest tests/test_crewai_middleware.py
+
+# Real CrewAI Agent test (requires OPENAI_API_KEY and internet)
+pytest tests/test_crewai_agent_real.py
+```
 
 ## Extending
 - Swap in ML detectors (e.g., Presidio, llama-guard) in `detectors.py`.

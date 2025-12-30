@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from .detectors import DetectionResult, DetectorSuite
 from .trust import TrustDecision, TrustEngine
-from .event_bus import DetectionEvent, DetectionSink
+from .event_bus import DetectionEvent, DetectionSink, build_kafka_sink_from_env
 
 
 @dataclass
@@ -27,7 +27,7 @@ class Inspector:
     ) -> None:
         self.detectors = detectors
         self.trust_engine = trust_engine
-        self.event_sink = event_sink
+        self.event_sink = event_sink or build_kafka_sink_from_env()
 
     def inspect_prompt(self, session_id: str, prompt: str, allow_masking: bool = True) -> InspectionDecision:
         detections = self.detectors.detect_prompt(prompt)

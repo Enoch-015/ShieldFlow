@@ -86,11 +86,17 @@ class CrewAIMiddleware:
         return response
 
     def wrap_tool(self, tool_name: str, call_tool: Callable[[], str]) -> str:
-        # Use trust gate only (tool calls normally produce their own detections upstream).
+        # Gate via trust, then inspect the tool output for prompt injection/PII before
+        # the model sees it.
         decision = self.inspector.trust_engine.apply(self.session_id, [])
         if not decision.allow_tools:
             raise RuntimeError(f"ShieldFlow denied tool {tool_name}: trust {decision.score}")
-        return call_tool()
+        output = call_tool()
+        text = "" if output is None else str(output)
+        result = self.inspector.inspect_prompt(self.session_id, text)
+        if result.detections or not result.allowed:
+            raise RuntimeError(f"ShieldFlow blocked tool output: {result.reason}")
+        return result.redacted_text or output
 
     def kickoff_guarded(self, agent: Any, messages: Union[str, List[dict]]) -> Any:
         """Guard a CrewAI agent kickoff by inspecting prompts and responses.

@@ -42,6 +42,17 @@ class ShieldFlowCallbackHandler(BaseCallbackHandler):
             raise RuntimeError(f"ShieldFlow blocked tool input: {decision.reason}")
         return None
 
+    def on_tool_end(self, output: Any, **kwargs: Any) -> Optional[Any]:
+        """Inspect tool outputs to prevent prompt-injection via tool results."""
+
+        text = self._stringify(output)
+        if not text:
+            return None
+        decision = self.inspector.inspect_prompt(self.session_id, text)
+        if decision.detections or not decision.allowed:
+            raise RuntimeError(f"ShieldFlow blocked tool output: {decision.reason}")
+        return None
+
     def on_llm_end(self, response: Any, **kwargs: Any) -> Optional[Any]:
         # Optionally inspect responses if available in the response object.
         content = None
