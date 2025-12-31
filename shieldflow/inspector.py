@@ -4,6 +4,7 @@ from typing import List, Optional
 from .detectors import DetectionResult, DetectorSuite
 from .trust import TrustDecision, TrustEngine
 from .event_bus import DetectionEvent, DetectionSink, build_kafka_sink_from_env
+from .datadog import DatadogClient, build_datadog_client_from_env
 
 
 @dataclass
@@ -24,10 +25,12 @@ class Inspector:
         detectors: DetectorSuite,
         trust_engine: TrustEngine,
         event_sink: Optional[DetectionSink] = None,
+        datadog_client: Optional[DatadogClient] = None,
     ) -> None:
         self.detectors = detectors
         self.trust_engine = trust_engine
         self.event_sink = event_sink or build_kafka_sink_from_env()
+        self.datadog = datadog_client or build_datadog_client_from_env()
 
     def inspect_prompt(self, session_id: str, prompt: str, allow_masking: bool = True) -> InspectionDecision:
         detections = self.detectors.detect_prompt(prompt)
@@ -74,23 +77,31 @@ class Inspector:
         return decision
 
     def _emit_event(self, session_id: str, stage: str, decision: InspectionDecision, text: str) -> None:
-        if not self.event_sink:
-            return
-        try:
-            event = DetectionEvent(
-                session_id=session_id,
-                stage=stage,
-                action=decision.action,
-                reason=decision.reason,
-                trust_score=decision.trust.score,
-                detections=[d.to_dict() for d in decision.detections],
-                redacted_text=decision.redacted_text,
-                original_text=text,
-            )
-            self.event_sink.send(event)
-        except Exception:
-            # Never block user flow on telemetry path
-            return
+        event_dict = {
+            "session_id": session_id,
+            "stage": stage,
+            "action": decision.action,
+            "reason": decision.reason,
+            "trust_score": decision.trust.score,
+            "detections": [d.to_dict() for d in decision.detections],
+            "redacted_text": decision.redacted_text,
+            "original_text": text,
+        }
+        
+        # Send to Kafka
+        if self.event_sink:
+            try:
+                event = DetectionEvent(**event_dict)
+                self.event_sink.send(event)
+            except Exception:
+                pass  # Never block user flow on telemetry
+        
+        # Send to Datadog
+        if self.datadog:
+            try:
+                self.datadog.send_detection_event(event_dict)
+            except Exception:
+                pass  # Never block user flow on telemetry
 
     @staticmethod
     def _redact(text: str, detections: List[DetectionResult]) -> str:

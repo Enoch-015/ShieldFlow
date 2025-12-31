@@ -1,0 +1,246 @@
+{
+  "title": "ShieldFlow Security Dashboard",
+  "description": "Real-time monitoring of LLM security detections, trust scores, and blocked requests",
+  "widgets": [
+    {
+      "id": 1,
+      "definition": {
+        "title": "Trust Score Over Time",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "timeseries",
+        "requests": [
+          {
+            "queries": [
+              {
+                "name": "query1",
+                "data_source": "metrics",
+                "query": "avg:shieldflow.trust_score{*}"
+              }
+            ],
+            "formulas": [{"formula": "query1"}],
+            "response_format": "timeseries",
+            "style": {
+              "palette": "warm",
+              "line_type": "solid",
+              "line_width": "normal"
+            },
+            "display_type": "line"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 0, "width": 6, "height": 3}
+    },
+    {
+      "id": 2,
+      "definition": {
+        "title": "Blocks vs Masked (Cumulative)",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "timeseries",
+        "requests": [
+          {
+            "queries": [
+              {
+                "name": "query1",
+                "data_source": "metrics",
+                "query": "max:shieldflow.blocks.total{*}"
+              },
+              {
+                "name": "query2",
+                "data_source": "metrics",
+                "query": "max:shieldflow.masked.total{*}"
+              }
+            ],
+            "formulas": [
+              {"formula": "query1", "alias": "Blocks"},
+              {"formula": "query2", "alias": "Masked"}
+            ],
+            "response_format": "timeseries",
+            "style": {"palette": "semantic"},
+            "display_type": "line"
+          }
+        ]
+      },
+      "layout": {"x": 6, "y": 0, "width": 6, "height": 3}
+    },
+    {
+      "id": 3,
+      "definition": {
+        "title": "Total Detections Over Time",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "timeseries",
+        "requests": [
+          {
+            "queries": [
+              {
+                "name": "query1",
+                "data_source": "metrics",
+                "query": "max:shieldflow.detections.total{*}"
+              }
+            ],
+            "formulas": [{"formula": "query1"}],
+            "response_format": "timeseries",
+            "style": {"palette": "orange"},
+            "display_type": "line"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 3, "width": 4, "height": 3}
+    },
+    {
+      "id": 4,
+      "definition": {
+        "title": "Detections by Stage",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "sunburst",
+        "requests": [
+          {
+            "queries": [
+              {
+                "name": "query1",
+                "data_source": "metrics",
+                "query": "max:shieldflow.detections.total{*} by {stage,action}"
+              }
+            ],
+            "formulas": [{"formula": "query1"}],
+            "response_format": "scalar"
+          }
+        ]
+      },
+      "layout": {"x": 4, "y": 3, "width": 4, "height": 3}
+    },
+    {
+      "id": 5,
+      "definition": {
+        "title": "Detections by Action",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "toplist",
+        "requests": [
+          {
+            "queries": [
+              {
+                "name": "query1",
+                "data_source": "metrics",
+                "query": "max:shieldflow.detections.total{*} by {action}"
+              }
+            ],
+            "formulas": [{"formula": "query1", "limit": {"count": 10, "order": "desc"}}],
+            "response_format": "scalar"
+          }
+        ]
+      },
+      "layout": {"x": 8, "y": 3, "width": 4, "height": 3}
+    },
+    {
+      "id": 6,
+      "definition": {
+        "title": "🚨 Flagged Prompts, Tool Descriptions & Outputs",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "log_stream",
+        "indexes": [],
+        "query": "service:shieldflow",
+        "columns": ["host", "service"],
+        "show_date_column": true,
+        "show_message_column": true,
+        "message_display": "expanded-md",
+        "sort": {
+          "column": "time",
+          "order": "desc"
+        }
+      },
+      "layout": {"x": 0, "y": 6, "width": 12, "height": 5}
+    },
+    {
+      "id": 7,
+      "definition": {
+        "title": "Trust Score Distribution",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "timeseries",
+        "requests": [
+          {
+            "queries": [
+              {
+                "name": "query1",
+                "data_source": "metrics",
+                "query": "avg:shieldflow.trust_score{*}"
+              }
+            ],
+            "formulas": [{"formula": "query1"}],
+            "response_format": "timeseries",
+            "style": {"palette": "cool"},
+            "display_type": "area"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 11, "width": 12, "height": 3}
+    },
+    {
+      "id": 8,
+      "definition": {
+        "title": "Detection Totals Over Time",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "timeseries",
+        "requests": [
+          {
+            "queries": [
+              {
+                "name": "pii",
+                "data_source": "metrics",
+                "query": "max:shieldflow.detection.pii.total{*}"
+              },
+              {
+                "name": "injection",
+                "data_source": "metrics",
+                "query": "max:shieldflow.detection.prompt_injection.total{*}"
+              },
+              {
+                "name": "gemini_pii",
+                "data_source": "metrics",
+                "query": "max:shieldflow.detection.sensitive_pii_gemini.total{*}"
+              },
+              {
+                "name": "gemini_injection",
+                "data_source": "metrics",
+                "query": "max:shieldflow.detection.prompt_injection_gemini.total{*}"
+              }
+            ],
+            "formulas": [
+              {"formula": "pii", "alias": "PII"},
+              {"formula": "injection", "alias": "Injection"},
+              {"formula": "gemini_pii", "alias": "Gemini PII"},
+              {"formula": "gemini_injection", "alias": "Gemini Injection"}
+            ],
+            "response_format": "timeseries",
+            "style": {"palette": "semantic"},
+            "display_type": "line"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 14, "width": 12, "height": 3}
+    }
+  ],
+  "template_variables": [
+    {
+      "name": "session_id",
+      "prefix": "session_id",
+      "available_values": [],
+      "default": "*"
+    },
+    {
+      "name": "stage",
+      "prefix": "stage",
+      "available_values": ["prompt", "response"],
+      "default": "*"
+    }
+  ],
+  "layout_type": "ordered",
+  "notify_list": [],
+  "reflow_type": "fixed"
+}

@@ -24,7 +24,7 @@ except ImportError:  # pragma: no cover
 
 REDIS_HOST = os.getenv("SHIELDFLOW_REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("SHIELDFLOW_REDIS_PORT", "6380"))
-KAFKA_BOOTSTRAP = os.getenv("SHIELDFLOW_KAFKA_BOOTSTRAP", "localhost:9092")
+KAFKA_BOOTSTRAP = os.getenv("SHIELDFLOW_KAFKA_BOOTSTRAP", "localhost:19092")
 FLINK_HOST = os.getenv("SHIELDFLOW_FLINK_HOST", "localhost")
 FLINK_PORT = int(os.getenv("SHIELDFLOW_FLINK_PORT", "8081"))
 

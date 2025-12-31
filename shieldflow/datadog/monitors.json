@@ -1,0 +1,76 @@
+{
+  "monitors": [
+    {
+      "name": "[ShieldFlow] High Block Rate",
+      "type": "metric alert",
+      "query": "sum(last_5m):sum:shieldflow.blocks{*} > 10",
+      "message": "ShieldFlow has blocked more than 10 requests in the last 5 minutes.\n\nThis could indicate:\n- Active prompt injection attack\n- Misconfigured trust thresholds\n- Anomalous user behavior\n\n@slack-security-alerts",
+      "tags": ["service:shieldflow", "team:security"],
+      "options": {
+        "thresholds": {
+          "critical": 10,
+          "warning": 5
+        },
+        "notify_no_data": false,
+        "renotify_interval": 30
+      }
+    },
+    {
+      "name": "[ShieldFlow] Trust Score Critical Low",
+      "type": "metric alert",
+      "query": "avg(last_5m):avg:shieldflow.trust_score{*} < 20",
+      "message": "Average trust score has dropped below 20.\n\nThis indicates potential malicious activity across sessions.\n\n@pagerduty-shieldflow",
+      "tags": ["service:shieldflow", "team:security", "severity:critical"],
+      "options": {
+        "thresholds": {
+          "critical": 20,
+          "warning": 40
+        },
+        "notify_no_data": false,
+        "renotify_interval": 60
+      }
+    },
+    {
+      "name": "[ShieldFlow] Prompt Injection Detected",
+      "type": "metric alert",
+      "query": "sum(last_10m):sum:shieldflow.detection.prompt_injection{*} > 5",
+      "message": "Multiple prompt injection attempts detected.\n\nMore than 5 injection attempts in the last 10 minutes.\n\n@slack-security-alerts",
+      "tags": ["service:shieldflow", "team:security", "attack_type:prompt_injection"],
+      "options": {
+        "thresholds": {
+          "critical": 5,
+          "warning": 2
+        },
+        "notify_no_data": false
+      }
+    },
+    {
+      "name": "[ShieldFlow] PII Data Detected",
+      "type": "metric alert",
+      "query": "sum(last_5m):sum:shieldflow.detection.pii{*} > 3",
+      "message": "Multiple PII detections in LLM traffic.\n\nShieldFlow has detected PII (SSN, email, phone) in more than 3 requests.\n\n@slack-security-alerts",
+      "tags": ["service:shieldflow", "team:security", "data_type:pii"],
+      "options": {
+        "thresholds": {
+          "critical": 3,
+          "warning": 1
+        },
+        "notify_no_data": false
+      }
+    },
+    {
+      "name": "[ShieldFlow] Gemini AI Detection Spike",
+      "type": "metric alert",
+      "query": "sum(last_5m):sum:shieldflow.detection.prompt_injection_gemini{*} > 3",
+      "message": "Gemini AI has flagged multiple prompt injection attempts.\n\nAI-based detection is catching sophisticated attacks.\n\n@slack-security-alerts",
+      "tags": ["service:shieldflow", "team:security", "detector:gemini"],
+      "options": {
+        "thresholds": {
+          "critical": 3,
+          "warning": 1
+        },
+        "notify_no_data": false
+      }
+    }
+  ]
+}

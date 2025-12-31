@@ -159,7 +159,7 @@ def test_kafka_and_flink_roundtrip():
     out_path_uri = f"file://{out_path}"
 
     _produce_detection(topic, session)
-    time.sleep(2)
+    time.sleep(5)  # Give Kafka time to fully commit the message
 
     sql = f"""
     SET 'execution.runtime-mode' = 'streaming';
@@ -198,7 +198,7 @@ def test_kafka_and_flink_roundtrip():
     """
 
     _run_sql(sql)
-    out = _wait_for_output(out_path, timeout=20.0)
+    out = _wait_for_output(out_path, timeout=30.0)
 
     assert session in out
     assert "prompt" in out or "metadata" in out

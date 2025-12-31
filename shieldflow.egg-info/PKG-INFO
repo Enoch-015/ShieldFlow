@@ -1,15 +1,30 @@
 Metadata-Version: 2.4
 Name: shieldflow
 Version: 0.1.0
-Summary: ShieldFlow: LLM Runtime IDS for prompts, responses, and tool calls
+Summary: Zero-trust runtime security layer for LLM agents - inspects prompts, responses, and tool calls in real time
 Author: ShieldFlow Team
-Project-URL: Homepage, https://example.com/shieldflow
-Keywords: llm,security,pii,kafka,datadog,runtime-ids
+License: MIT
+Project-URL: Homepage, https://github.com/Enoch-015/ShieldFlow
+Project-URL: Documentation, https://github.com/Enoch-015/ShieldFlow#readme
+Project-URL: Repository, https://github.com/Enoch-015/ShieldFlow
+Project-URL: Issues, https://github.com/Enoch-015/ShieldFlow/issues
+Keywords: llm,security,ai-safety,prompt-injection,pii-detection,langchain,crewai,kafka,flink,datadog,runtime-ids,zero-trust,agent-security
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Security
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: gemini
+Requires-Dist: google-genai>=1.0.0; extra == "gemini"
 Provides-Extra: observability
 Requires-Dist: requests>=2.28; extra == "observability"
 Provides-Extra: redis
@@ -22,155 +37,445 @@ Requires-Dist: crewai>=0.28; extra == "crewai"
 Provides-Extra: streaming
 Requires-Dist: apache-flink==2.2.0; extra == "streaming"
 Requires-Dist: kafka-python>=2.0; extra == "streaming"
+Provides-Extra: all
+Requires-Dist: google-genai>=1.0.0; extra == "all"
+Requires-Dist: requests>=2.28; extra == "all"
+Requires-Dist: redis>=4.5; extra == "all"
+Requires-Dist: langchain>=0.1; extra == "all"
+Requires-Dist: tiktoken>=0.5; extra == "all"
+Requires-Dist: crewai>=0.28; extra == "all"
+Requires-Dist: apache-flink==2.2.0; extra == "all"
+Requires-Dist: kafka-python>=2.0; extra == "all"
 Provides-Extra: test
 Requires-Dist: pytest>=7.4; extra == "test"
 Requires-Dist: kafka-python>=2.0; extra == "test"
 Requires-Dist: requests>=2.28; extra == "test"
 Requires-Dist: apache-flink==2.2.0; extra == "test"
+Requires-Dist: google-genai>=1.0.0; extra == "test"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Dynamic: license-file
 
-# ShieldFlow: LLM Runtime IDS
+<p align="center">
+  <h1 align="center">🛡️ ShieldFlow</h1>
+  <p align="center">
+    <strong>Zero-Trust Runtime Security for LLM Agents</strong>
+  </p>
+  <p align="center">
+    Inspect prompts, responses, and tool calls in real time before they reach the model or external systems.
+  </p>
+</p>
 
-ShieldFlow is a zero-trust runtime security layer for agentic systems. It inspects user prompts, LLM responses, and tool calls in real time before they reach the model or external systems. Built for Confluent (Kafka/Flink) + Datadog, it adds behavioral monitoring, trust scoring, and auditable block actions that plug into LangChain, CrewAI, or any bespoke agent stack.
+<p align="center">
+  <a href="#installation">Installation</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#features">Features</a> •
+  <a href="#integrations">Integrations</a> •
+  <a href="#documentation">Documentation</a>
+</p>
 
-## Why it exists
-- Prevent inadvertent data leaks (PII, API keys) and jailbreak prompt injections.
-- Detect behavioral exfiltration (high-entropy output, suspicious tool chaining).
-- Provide auditable, explainable blocks with Datadog incidents and traces.
+---
 
-## High-level architecture
+## Why ShieldFlow?
 
-```
-User/Agent -> API Gateway -> Kafka (ingest)
-Kafka -> Flink/Kafka Streams Inspector (Python/SQL UDFs)
-Inspector -> Trust Engine (Redis state) -> Allow/Block -> LLM
-Inspector -> Tool-call inspection -> allow/deny MCP tools
-Inspector -> Datadog (metrics, incidents, traces)
-Datadog -> webhook -> revoke tool access / cut hands off
-```
+LLM agents are powerful but vulnerable. They can:
+- **Leak sensitive data** (PII, API keys, internal documents)
+- **Be manipulated** via prompt injection attacks
+- **Execute malicious tool calls** from compromised contexts
 
-- **Inspector**: runs regex + ML/heuristic detectors (PII, injections, entropy).
-- **Trust Engine**: rolling score per session; decays on risky events; gates tool access.
-- **Datadog**: dashboards for Token Health, Blocked Interventions, high-entropy alerts; incident with exact prompt/response trace.
-- **Connectors**: LangChain/CrewAI middleware; HTTP proxy for any model vendor.
+ShieldFlow acts as a **runtime intrusion detection system (IDS)** for your AI agents, providing:
 
-## Data flow (prompt loop)
-1. Gateway pushes prompt to Kafka topic `shieldflow.prompts.in`.
-2. Flink SQL or Kafka Streams app applies UDFs (PII, injection, entropy) and enriches with `trust_score` from Redis.
-3. Decision:
-   - `allow`: forward to LLM.
-   - `allow+mask`: redact PII before forwarding.
-   - `block`: stop, emit incident to Datadog with context (trace id, Kafka offset, matched pattern, confidence).
-4. Responses flow back through the same inspector; entropy/behavioral signals can degrade trust and optionally revoke tool access.
+✅ Real-time inspection of all LLM traffic  
+✅ Automatic PII detection and masking  
+✅ Prompt injection attack detection (rule-based + Gemini AI)  
+✅ Trust scoring with automatic tool revocation  
+✅ Full observability via Datadog dashboards  
+✅ Kafka/Flink streaming for enterprise scale  
 
-## Data flow (tool loop)
-1. LLM tool calls are sent to Kafka topic `shieldflow.tools.in`.
-2. Inspector checks trust score and a tool policy (allow list, max rate, max spend).
-3. If trust < threshold → deny tool execution and emit Datadog alert.
+---
 
-## Trust score model
-- Starts at 100 per session. Each event applies a delta.
-- Example deltas: PII high-confidence -25; injection high-confidence -40; entropy spike -20; clean message +1 (capped).
-- If score < 60 → disable non-idempotent tools; < 30 → block all tool calls and require human review.
+## Installation
 
-## Detectors
-- **PII**: regex for SSN, credit card, AWS keys; extendable to ML-based detectors.
-- **Prompt injection**: keyword/heuristic rules ("ignore previous", "system override", embedded instructions); add embeddings/LLM scorer later.
-- **Entropy**: Shannon entropy over response window to flag exfiltration-like dumps.
+```bash
+# Basic installation
+pip install shieldflow
 
-## Datadog observability
-- Metrics: `shieldflow.blocks`, `shieldflow.allows`, `shieldflow.trust_score`, `shieldflow.token_health`.
-- Events/Incidents: Detection rule fires when entropy > threshold or trust < floor; payload includes trace, patterns matched, confidence, Kafka offsets.
-- Dashboard: Blocked vs Successful, Trust over time, Entropy spikes.
+# With Datadog observability
+pip install shieldflow[observability]
 
-## Components in this repo
-- `shieldflow/detectors.py`: PII, injection, entropy detectors with confidences.
-- `shieldflow/trust.py`: trust scoring with pluggable store (in-memory or Redis).
-- `shieldflow/inspector.py`: orchestrates detection -> decision -> action.
-- `shieldflow/datadog.py`: lightweight client for metrics/incidents.
-- `shieldflow/gateway_proxy.py`: reference interceptor for synchronous LLM calls.
-- `shieldflow/integrations/langchain_callback.py`: callback handler to enforce decisions.
-- `shieldflow/integrations/crewai_middleware.py`: simple middleware hook.
-- `examples/demo_pipeline.py`: local demo wiring detectors + trust + decisions.
+# With LangChain integration
+pip install shieldflow[langchain]
 
-## Integration modes
-- **Kafka/Flink**: use UDFs to call `shieldflow.detectors` and write decisions to topics (`shieldflow.decisions`).
-- **HTTP middleware**: wrap upstream LLM call with `Inspector.inspect_prompt` and `inspect_response`.
-- **LangChain**: attach `ShieldFlowCallbackHandler` to chains/agents to block or redact before downstream call.
-- **CrewAI**: wrap agent loop with middleware to check decisions and revoke tools.
+# With CrewAI integration
+pip install shieldflow[crewai]
 
-## Quick start (local, synchronous demo)
-```
-make setup
-make demo
+# With Kafka/Flink streaming
+pip install shieldflow[streaming]
+
+# Everything
+pip install shieldflow[all]
 ```
 
-## Docker stack (Redis + Kafka + Flink)
+---
+
+## Quick Start
+
+### Basic Usage
+
+```python
+from shieldflow import Inspector, DetectorSuite, TrustEngine, InMemoryTrustStore
+
+# Initialize ShieldFlow
+detectors = DetectorSuite()  # Auto-enables Gemini if GEMINI_API_KEY is set
+trust_engine = TrustEngine(InMemoryTrustStore())
+inspector = Inspector(detectors, trust_engine)
+
+# Inspect a prompt before sending to LLM
+result = inspector.inspect_prompt("session-123", user_prompt)
+
+if result.allowed:
+    # Safe to send - use redacted text if PII was found
+    clean_prompt = result.redacted_text or user_prompt
+    response = llm.generate(clean_prompt)
+    
+    # Inspect the response too
+    response_result = inspector.inspect_response("session-123", response)
+else:
+    # Blocked - potential attack detected
+    print(f"Blocked: {result.reason}")
 ```
-make compose-up
-# Flink UI: http://localhost:8081
-# Kafka broker: localhost:9092, Redis: localhost:6380 (host mapped)
-make compose-down
+
+### Environment Variables
+
+```bash
+# Gemini AI Detection (recommended)
+export GEMINI_API_KEY=your_gemini_api_key
+
+# Datadog Observability
+export DATADOG_API_KEY=your_datadog_api_key
+export DATADOG_APP_KEY=your_datadog_app_key
+export DD_SITE=us5.datadoghq.com  # Your Datadog region
+
+# Kafka Streaming (optional)
+export SHIELDFLOW_KAFKA_BOOTSTRAP=localhost:9092
+export SHIELDFLOW_KAFKA_TOPIC=shieldflow.detections
 ```
-Use `RedisTrustStore` to persist trust across stream tasks:
+
+---
+
+## CLI Commands
+
+ShieldFlow includes a CLI for easy setup:
+
+```bash
+# Check your environment
+shieldflow doctor
+
+# Interactive setup wizard
+shieldflow setup
+
+# Set up Datadog dashboard and monitors
+shieldflow setup datadog
+
+# Generate docker-compose.yml for local stack
+shieldflow setup docker
+```
+
+---
+
+## Features
+
+### 🔍 Detection Suite
+
+| Detector | Description | Confidence |
+|----------|-------------|------------|
+| **PII Detection** | SSN, credit cards, emails, phone numbers, AWS keys | High |
+| **Prompt Injection** | "Ignore previous", "system override", embedded instructions | High |
+| **High Entropy** | Detects potential data exfiltration (base64, hex dumps) | Medium |
+| **Gemini AI** | Dynamic AI-based analysis for sophisticated attacks | High |
+
+### 📊 Trust Scoring
+
+Each session starts with a trust score of **100**. Risky events decrease the score:
+
+| Event | Score Impact |
+|-------|--------------|
+| PII detected | -25 |
+| Prompt injection | -40 |
+| High entropy response | -20 |
+| Clean message | +1 (capped) |
+
+**Trust thresholds:**
+- `score < 60` → Disable non-idempotent tools
+- `score < 30` → Block all tool calls, require human review
+
+### 🛠️ Tool & MCP Guarding
+
+ShieldFlow inspects tool descriptions and outputs for injection attacks:
+
+```python
+from shieldflow.integrations.langchain_callback import validate_tool_metadata
+
+# Validate before registering tools
+tools = [search_tool, calculator_tool]
+issues = validate_tool_metadata(tools, inspector)
+
+if issues:
+    print(f"Dangerous tools detected: {issues}")
+```
+
+---
+
+## Integrations
+
+### LangChain
+
+```python
+from langchain.chat_models import ChatOpenAI
+from shieldflow.integrations.langchain_callback import ShieldFlowCallbackHandler
+
+# Create callback handler
+handler = ShieldFlowCallbackHandler(inspector, session_id="user-123")
+
+# Attach to your chain
+llm = ChatOpenAI(callbacks=[handler])
+chain = create_your_chain(llm)
+
+# All prompts and responses are automatically inspected
+result = chain.invoke({"input": user_message})
+```
+
+### CrewAI
+
+```python
+from crewai import Agent, Crew, Task
+from shieldflow.integrations.crewai_middleware import CrewAIMiddleware
+
+# Wrap your crew with ShieldFlow
+middleware = CrewAIMiddleware(inspector)
+
+# Guarded kickoff - inspects prompts and responses
+result = middleware.kickoff_guarded(
+    crew=crew,
+    inputs={"topic": user_input},
+    session_id="crew-session-123"
+)
+```
+
+### Kafka/Flink Streaming
+
+```python
+# Detections are automatically streamed when env vars are set
+# SHIELDFLOW_KAFKA_BOOTSTRAP=localhost:9092
+# SHIELDFLOW_KAFKA_TOPIC=shieldflow.detections
+
+# Or configure manually
+from shieldflow.event_bus import KafkaSink
+
+sink = KafkaSink(bootstrap_servers="kafka:9092", topic="detections")
+inspector = Inspector(detectors, trust_engine, event_sink=sink)
+```
+
+---
+
+## Datadog Observability
+
+### Automatic Setup
+
+```bash
+# Set your credentials
+export DATADOG_API_KEY=your_api_key
+export DATADOG_APP_KEY=your_app_key
+export DD_SITE=us5.datadoghq.com
+
+# Run setup
+shieldflow setup datadog
+```
+
+This creates:
+- **Dashboard** with trust scores, detection counts, and flagged content log
+- **Monitors** for high block rates, low trust scores, and attack spikes
+
+### Metrics Sent
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `shieldflow.trust_score` | Gauge | Current session trust score |
+| `shieldflow.blocks.total` | Gauge | Cumulative blocked requests |
+| `shieldflow.masked.total` | Gauge | Cumulative masked requests |
+| `shieldflow.detection.*.total` | Gauge | Counts by detection type |
+
+### Log Stream
+
+All flagged prompts, tool descriptions, and outputs are logged with:
+- Original text (truncated)
+- Detection types
+- Action taken
+- Session ID
+
+---
+
+## Docker Stack
+
+For local development with Redis, Kafka, and Flink:
+
+```bash
+# Generate docker-compose.yml
+shieldflow setup docker
+
+# Start the stack
+docker-compose up -d
+
+# Services:
+# - Redis:  localhost:6380
+# - Kafka:  localhost:19092  
+# - Flink:  http://localhost:8081
+```
+
+### Using Redis for Trust Storage
 
 ```python
 import redis
 from shieldflow.trust import TrustEngine, RedisTrustStore
 
-r = redis.Redis(host="localhost", port=6379)
-trust = TrustEngine(RedisTrustStore(r))
+r = redis.Redis(host="localhost", port=6380)
+trust_engine = TrustEngine(RedisTrustStore(r))
 ```
 
-## Flink UDF wiring (Python Table API)
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Your Application                          │
+│  (LangChain, CrewAI, Custom Agent)                               │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      ShieldFlow Inspector                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │ PII Detector │  │  Injection   │  │   Entropy    │           │
+│  │              │  │  Detector    │  │   Detector   │           │
+│  └──────────────┘  └──────────────┘  └──────────────┘           │
+│  ┌──────────────────────────────────────────────────┐           │
+│  │           Gemini AI Safety Detector              │           │
+│  └──────────────────────────────────────────────────┘           │
+│                          │                                       │
+│                          ▼                                       │
+│  ┌──────────────────────────────────────────────────┐           │
+│  │              Trust Engine (Redis)                 │           │
+│  │         Score: 100 → Decision: allow/block        │           │
+│  └──────────────────────────────────────────────────┘           │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+          ┌───────────────┼───────────────┐
+          ▼               ▼               ▼
+    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │  Kafka   │    │ Datadog  │    │   LLM    │
+    │ (stream) │    │ (observe)│    │ (if safe)│
+    └──────────┘    └──────────┘    └──────────┘
+```
+
+---
+
+## API Reference
+
+### Inspector
+
 ```python
-from pyflink.table import EnvironmentSettings, TableEnvironment
-from shieldflow.flink_udfs import udf_detect_prompt
-
-t_env = TableEnvironment.create(EnvironmentSettings.in_streaming_mode())
-t_env.create_temporary_system_function("sf_detect_prompt", udf_detect_prompt)
-```
-See `examples/flink_sql_example.sql` for a Kafka source -> detections sink template.
-
-## Integration tests (stack reachability)
-```
-make setup  # ensures test extras installed
-make test-stack
-```
-Tests will be skipped if Redis/Kafka/Flink are not reachable; use `make compose-up` first.
-
-## CrewAI integration
-```
-pip install -e '.[crewai]'
-python examples/crewai_integration.py
-```
-The example uses `CrewAIMiddleware.kickoff_guarded` to inspect/mask user prompts (string or messages list) and re-check LLM responses for entropy/PII. If a prompt is unsafe, it raises before calling the agent; if a response is risky, it raises after kickoff. Replace the agent config/LLM per your environment.
-
-## LangChain integration
-```
-pip install -e '.[langchain]'
-python examples/langchain_integration.py
-```
-In `examples/langchain_integration.py` we:
-- Run `validate_tool_metadata` before registering tools to catch malicious MCP/tool descriptions.
-- Attach `ShieldFlowCallbackHandler` so prompts, tool inputs, and responses are inspected/masked/blocked.
-
-### CrewAI tests
-```
-# Unit-level guard tests (no API calls)
-pytest tests/test_crewai_middleware.py
-
-# Real CrewAI Agent test (requires OPENAI_API_KEY and internet)
-pytest tests/test_crewai_agent_real.py
+class Inspector:
+    def inspect_prompt(
+        self, 
+        session_id: str, 
+        prompt: str, 
+        allow_masking: bool = True
+    ) -> InspectionDecision:
+        """Inspect a user prompt before sending to LLM."""
+        
+    def inspect_response(
+        self, 
+        session_id: str, 
+        response: str
+    ) -> InspectionDecision:
+        """Inspect an LLM response before returning to user."""
 ```
 
-## Extending
-- Swap in ML detectors (e.g., Presidio, llama-guard) in `detectors.py`.
-- Implement Redis-backed `TrustStore` for horizontal scale.
-- Wire to Confluent by publishing decisions to topics and consuming from Flink SQL.
-- Add Datadog detection rule for entropy spikes to auto-open cases.
+### InspectionDecision
 
-## Roadmap
-- UDFs for Flink SQL and Kafka Streams.
-- Masking/redaction options per field.
-- Richer audit trails (prompt diff, tool call parameters, MCP trace IDs).
-- CI/CD with integration tests against mock Kafka and Datadog.
+```python
+@dataclass
+class InspectionDecision:
+    allowed: bool           # Whether to proceed
+    redacted_text: str      # Text with PII masked (if any)
+    detections: List[DetectionResult]  # What was found
+    trust: TrustDecision    # Trust score info
+    action: str             # "allow" | "allow_masked" | "block"
+    reason: str             # Human-readable explanation
+```
+
+### DetectorSuite
+
+```python
+class DetectorSuite:
+    def __init__(self, use_gemini: bool = None):
+        """
+        Initialize detectors.
+        
+        Args:
+            use_gemini: Enable Gemini AI detection.
+                       None = auto-detect from GEMINI_API_KEY env var
+        """
+```
+
+---
+
+## Examples
+
+See the `examples/` directory for complete examples:
+
+- `demo_pipeline.py` - Basic detection demo
+- `crewai_guarded_agent.py` - CrewAI integration
+- `langchain_guarded_agent.py` - LangChain integration
+- `flink_sql_example.sql` - Flink SQL UDF usage
+
+---
+
+## Contributing
+
+Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md).
+
+```bash
+# Development setup
+git clone https://github.com/Enoch-015/ShieldFlow.git
+cd ShieldFlow
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Run with coverage
+pytest --cov=shieldflow
+```
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## Security
+
+Found a vulnerability? Please report it responsibly by emailing security@shieldflow.dev or opening a private security advisory on GitHub.
+
+---
+
+<p align="center">
+  Built with ❤️ for safer AI agents
+</p>

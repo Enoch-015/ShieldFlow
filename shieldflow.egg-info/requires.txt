@@ -1,6 +1,25 @@
 
+[all]
+google-genai>=1.0.0
+requests>=2.28
+redis>=4.5
+langchain>=0.1
+tiktoken>=0.5
+crewai>=0.28
+apache-flink==2.2.0
+kafka-python>=2.0
+
 [crewai]
 crewai>=0.28
+
+[dev]
+pytest>=7.4
+black
+ruff
+mypy
+
+[gemini]
+google-genai>=1.0.0
 
 [langchain]
 langchain>=0.1
@@ -21,3 +40,4 @@ pytest>=7.4
 kafka-python>=2.0
 requests>=2.28
 apache-flink==2.2.0
+google-genai>=1.0.0

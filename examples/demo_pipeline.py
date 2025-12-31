@@ -47,9 +47,15 @@ def main():
         print("✓ Gemini AI detection enabled (GEMINI_API_KEY set)")
     else:
         print("ℹ Gemini AI detection disabled (set GEMINI_API_KEY to enable)")
+    
+    # Check Datadog observability
+    if os.getenv("DATADOG_API_KEY"):
+        print("✓ Datadog observability enabled (DATADOG_API_KEY set)")
+    else:
+        print("ℹ Datadog disabled (set DATADOG_API_KEY to enable)")
     print()
 
-    # Initialize ShieldFlow - auto-connects to Kafka if env vars set
+    # Initialize ShieldFlow - auto-connects to Kafka and Datadog if env vars set
     detectors = DetectorSuite()
     trust_engine = TrustEngine(InMemoryTrustStore())
     inspector = Inspector(detectors, trust_engine)

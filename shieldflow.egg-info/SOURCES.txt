@@ -1,6 +1,8 @@
+LICENSE
 README.md
 pyproject.toml
 shieldflow/__init__.py
+shieldflow/cli.py
 shieldflow/datadog.py
 shieldflow/detectors.py
 shieldflow/event_bus.py
@@ -11,8 +13,14 @@ shieldflow/trust.py
 shieldflow.egg-info/PKG-INFO
 shieldflow.egg-info/SOURCES.txt
 shieldflow.egg-info/dependency_links.txt
+shieldflow.egg-info/entry_points.txt
 shieldflow.egg-info/requires.txt
 shieldflow.egg-info/top_level.txt
+shieldflow/datadog/README.md
+shieldflow/datadog/dashboard.json
+shieldflow/datadog/monitors.json
+shieldflow/datadog/setup_datadog.py
+shieldflow/docker/flink/Dockerfile
 shieldflow/integrations/__init__.py
 shieldflow/integrations/crewai_middleware.py
 shieldflow/integrations/langchain_callback.py

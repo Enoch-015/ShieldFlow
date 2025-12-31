@@ -1,0 +1,2 @@
+[console_scripts]
+shieldflow = shieldflow.cli:main
